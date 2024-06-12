@@ -5,7 +5,7 @@ import random
 
 random.seed(time.time())
 
-FULLSCREEN = 0 # 1- for final
+FULLSCREEN = 1 # 1- for final
 
 
 TITLE = "Snake Ladder"
@@ -16,8 +16,24 @@ GRID_WIDTH  = 6
 GRID_HEIGHT = 6
 GAME_SIZE = GRID_WIDTH*GRID_HEIGHT
 
+dice_images = []
+
 board_image               = pygame.image.load("images/board.png")
 pawn_image                = pygame.image.load("images/pawn.png")
+logo_image                = pygame.image.load("images/logo.png")
+
+dice_images.append(pygame.image.load("images/dice_1.png"))
+dice_images.append(pygame.image.load("images/dice_2.png"))
+dice_images.append(pygame.image.load("images/dice_3.png"))
+dice_images.append(pygame.image.load("images/dice_4.png"))
+dice_images.append(pygame.image.load("images/dice_5.png"))
+dice_images.append(pygame.image.load("images/dice_6.png"))
+
+dice_1_image = dice_images[0]
+dice_2_image = dice_images[0]
+
+
+
 
 #pawn_image = pygame.transform.scale(image, (new_width, new_height))
 
@@ -29,6 +45,8 @@ if FULLSCREEN == 1:
     infoObject = pygame.display.Info()
     WIDTH, HEIGHT = (infoObject.current_w, infoObject.current_h)
     screen = pygame.display.set_mode((0,0),pygame.FULLSCREEN)
+    aspect_ratio = board_image.get_height() / board_image.get_width()
+    board_image = pygame.transform.scale(board_image, (int(HEIGHT*aspect_ratio), HEIGHT))
 else:
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     
@@ -40,6 +58,26 @@ pawn_x = 50
 pawn_y = 50
 
 grid_size = board_image.get_width()/GRID_WIDTH
+
+
+x_offset_dice1 = int(board_image.get_width() * 1.2)
+y_offset_dice1 = int(board_image.get_height() * 0.75)
+
+x_offset_dice2 = int(x_offset_dice1 + (dice_1_image.get_width() * 2))
+y_offset_dice2 = int(board_image.get_height() * 0.75)
+
+
+x_offset_logo = int(board_image.get_width()*1.2)
+y_offset_logo = int(HEIGHT*0.05)
+
+x_offset_score = int(board_image.get_width()*1.2)
+y_offset_score = int(board_image.get_height() * 0.40)
+
+
+color = (255,0,0)
+
+
+
 
 snakes = [  [16,2],
             [25,12],
@@ -79,6 +117,9 @@ def setPawnPos(grid_num):
 snakeAttack = 0
 ladderClimb = 0
 
+
+
+
 def scanforSnakesAndLadders(pos):
     global snakes, ladders,snakeAttack,ladderClimb
     for snake in snakes:
@@ -105,6 +146,10 @@ new_pos_counter = 0
 
 cnt = 0 
 
+dice1 = 0
+dice2 = 0
+
+
 random.randint(2, 12)
 print(int(time.time()*1000))
 
@@ -116,6 +161,7 @@ def updateTimer():
     changePwanAt = int(time.time()*1000) + 500 # 2 seconds
     
 game_exceed = 0
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -126,9 +172,11 @@ while running:
                 #if(position >= 36):
                  #   position = 1
                 print("Enter key pressed!")
-                
-                new_position = position + random.randint(2, 12) #scanforSnakesAndLadders(position + random.randint(2, 4))
-    
+                dice1 = random.randint(1,6)
+                dice2 = random.randint(1,6)
+                new_position = position + dice1 + dice2 #scanforSnakesAndLadders(position + random.randint(2, 4))
+                dice_1_image = dice_images[dice1-1]
+                dice_2_image = dice_images[dice2-1]
                 if(new_position > GAME_SIZE ):
                     game_exceed = 1
         
@@ -170,6 +218,18 @@ while running:
     
     screen.blit(board_image, (0, 0))
     screen.blit(pawn_image, (pawn_x, pawn_y))
+    screen.blit(logo_image, (x_offset_logo,y_offset_logo))
+    
+    screen.blit(dice_1_image, (x_offset_dice1,y_offset_dice1))
+    screen.blit(dice_2_image, (x_offset_dice2,y_offset_dice2))
+    
+    #pygame.draw.rect(screen, color, pygame.Rect(x_offset_dice, y_offset_dice, 60, 60))
+    #pygame.draw.rect(screen, color, pygame.Rect(x_offset_logo, y_offset_logo, 60, 60))
+    pygame.draw.rect(screen, color, pygame.Rect(x_offset_score, y_offset_score,  logo_image.get_width(),60))
+    
+    
+    pygame.display.flip()
+
     pygame.display.update()
     
     clock.tick(60)
