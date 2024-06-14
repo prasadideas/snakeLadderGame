@@ -20,9 +20,13 @@ GAME_SIZE = GRID_WIDTH*GRID_HEIGHT
 
 dice_images = []
 
+back_image                = pygame.image.load("images/background.jpg")
 board_image               = pygame.image.load("images/board.png")
 pawn_image                = pygame.image.load("images/pawn.png")
 logo_image                = pygame.image.load("images/logo.png")
+win_image                 = pygame.image.load("images/win.png")
+lost_image                = pygame.image.load("images/lost.png")
+
 
 dice_images.append(pygame.image.load("images/dice_0.png"))
 dice_images.append(pygame.image.load("images/dice_1.png"))
@@ -273,6 +277,146 @@ MAX_THROWS = 3
 throws = 0
 score_data[2] = "Throw Dice.."
 game_own = 0
+
+GAME_START_         = 0     
+GAME_RUNNING_       = 1
+GAME_SNAKE_BITE_    = 2
+GAME_LADDER_CLIMB_  = 3
+GAME_LOST_          = 4
+GAME_WIN_           = 5
+
+gameState = GAME_RUNNING_
+
+showWinImage  = 0
+showLostImage = 0
+showStartImage = 0
+
+exitwinstateAt = 0
+exitloststateAt = 0
+exitstartstateAt = int(time.time()) + 2
+PWAN_MOVEMENT = 10 #in ms
+
+while running:
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                print("Enter key pressed!")
+                new_position = position +  dice1 + dice2
+
+                score_data[3] = "new position:"+str(new_position) + "--"+str(position)
+                throws = throws + 1
+                if(throws < MAX_THROWS):
+                    score_data[2] = "Throw Dice. You Have " + str(MAX_THROWS - throws) + " Throws"
+                else:
+                    score_data[2] = "You Have no Throws"
+
+
+
+    if gameState == GAME_START_:
+        if(exitstartstateAt >= int(time.time())):
+            position = 0
+            new_position = 0
+            showStartImage = 1
+            throws = 0
+            score_data[3] = "new position:"+str(new_position) + "--"+str(position)
+            score_data[2] = "Remaing Throws .. " +str(MAX_THROWS - throws)
+        else:
+            showStartImage = 0
+            gameState = GAME_RUNNING_
+            print("going to running")
+
+    elif gameState == GAME_RUNNING_:
+
+        if throws == MAX_THROWS and new_position != GAME_SIZE:
+            exitloststateAt = int(time.time()) + 5
+            print("going to game lost")
+            gameState = GAME_LOST_
+
+        if snakeAttack == 1:
+            print("going to snake bite")
+            gameState = GAME_SNAKE_BITE_
+        elif ladderClimb == 1:
+            print("going to Ladder Climb")
+            gameState = GAME_LADDER_CLIMB_
+        else:
+            if(new_position > position):
+                if(changePwanAt < int(time.time()*1000)):
+                    changePwanAt = int(time.time()*1000) + PWAN_MOVEMENT # next move after this time 
+                    position = position + 1
+                    print(position)
+                    if(new_position == position): # reached targeted grid
+                        if new_position == GAME_SIZE:
+                            print("going to Win")
+                            exitwinstateAt = int(time.time()) + 5
+                            gameState = GAME_WIN_
+                        else:
+                            new_position = scanforSnakesAndLadders(position)
+
+            elif(new_position < position): # do not come here
+                pass
+
+    elif gameState == GAME_SNAKE_BITE_:
+        snakeAttack = 0
+        position = new_position
+        gameState = GAME_RUNNING_
+        
+    elif gameState == GAME_LADDER_CLIMB_:
+        ladderClimb = 0
+        position = new_position
+        gameState = GAME_RUNNING_
+        
+    elif gameState == GAME_LOST_:
+        if(exitloststateAt >= int(time.time())):
+            showLostImage = 1
+        else:
+            showLostImage = 0
+            exitstartstateAt = int(time.time()) + 5
+            gameState = GAME_START_
+        pass
+    elif gameState == GAME_WIN_:
+        if(exitwinstateAt >= int(time.time())):
+            showWinImage = 1
+        else:
+            showWinImage = 0
+            exitstartstateAt = int(time.time()) + 5
+            gameState = GAME_START_
+
+    else:
+        pass
+
+    
+    # common updates
+    setPawnPos(position)
+
+    image_rect = back_image.get_rect()
+    image_rect.center = (WIDTH // 2, HEIGHT // 2)
+    screen.blit(back_image, image_rect)
+
+    screen.blit(board_image, (0, 0))
+    screen.blit(pawn_image, (pawn_x, pawn_y))
+    screen.blit(logo_image, (x_offset_logo,y_offset_logo))
+    
+    screen.blit(dice_1_image, (x_offset_dice1,y_offset_dice1))
+    screen.blit(dice_2_image, (x_offset_dice2,y_offset_dice2))
+    
+    score_data[0] = "Dice1 :" + str(dice1) + "  Dice2 :" + str(dice2)
+    score_data[1] = "You are at " + str(position)
+
+    draw_scoreboard(screen, x_offset_score, y_offset_score, scoreboard_width, scoreboard_height, score_data)
+
+    if showWinImage == 1 :
+        image_rect = win_image.get_rect()
+        image_rect.center = (WIDTH // 2, HEIGHT // 2)
+        screen.blit(win_image, image_rect)    
+
+    pygame.display.flip()
+    pygame.display.update()
+    clock.tick(60)
+
+   
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
