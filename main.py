@@ -2,6 +2,8 @@ import pygame
 import time
 import cv2
 import random
+from paho.mqtt import client as mqtt
+
 
 random.seed(time.time())
 
@@ -22,6 +24,7 @@ board_image               = pygame.image.load("images/board.png")
 pawn_image                = pygame.image.load("images/pawn.png")
 logo_image                = pygame.image.load("images/logo.png")
 
+dice_images.append(pygame.image.load("images/dice_0.png"))
 dice_images.append(pygame.image.load("images/dice_1.png"))
 dice_images.append(pygame.image.load("images/dice_2.png"))
 dice_images.append(pygame.image.load("images/dice_3.png"))
@@ -77,6 +80,86 @@ y_offset_score = int(board_image.get_height() * 0.40)
 color = (255,0,0)
 
 
+broker_address = 'broker.hivemq.com'
+broker_port = 1883
+topic1 = "Dice/1"
+topic2 = "Dice/2"
+
+client_id = f'python-mqtt-{random.randint(0, 1000)}'
+
+dice1 = 0
+dice2 = 0
+
+def on_message(client, userdata, message):
+    global dice1,dice2,dice_1_image,dice_2_image
+    print(f"Message received on topic {message.topic}: {message.payload.decode()}")
+    if(message.topic == "Dice/1"):
+        msg = str(message.payload.decode())
+        if(msg == "Top"):
+            dice1 = 1
+        if(msg == "Bottom"):
+            dice1 = 2
+        if(msg == "Right"):
+            dice1 = 3
+        if(msg == "Left"):
+            dice1 = 4
+        if(msg == "Back"):
+            dice1 = 5
+        if(msg == "Front"):
+            dice1 = 6
+        if(dice1 != 0):
+            dice_1_image = dice_images[dice1]
+                
+    if(message.topic == "Dice/2"):
+        msg = str(message.payload.decode())
+        if(msg == "Top"):
+            dice2 = 1
+        if(msg == "Bottom"):
+            dice2 = 2
+        if(msg == "Right"):
+            dice2 = 3
+        if(msg == "Left"):
+            dice2 = 4
+        if(msg == "Back"):
+            dice2 = 5
+        if(msg == "Front"):
+            dice2 = 6
+        if(dice2 != 0):
+            dice_2_image = dice_images[dice2]
+
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("Connected successfully")
+        # Subscribe to the topics
+        client.subscribe(topic1)
+        client.subscribe(topic2)
+    else:
+        print(f"Connect failed with code {rc}")
+
+def on_disconnect(client, userdata, rc):
+    if rc != 0:
+        print(f"Unexpected disconnection. Reconnecting in 5 seconds. Code: {rc}")
+        time.sleep(5)
+        try:
+            client.reconnect()
+        except:
+            print("Reconnection failed. Trying again in 5 seconds.")
+            time.sleep(5)
+            on_disconnect(client, userdata, rc)
+client = mqtt.Client()
+
+# Attach the on_message callback function
+client.on_message = on_message
+client.on_connect = on_connect
+client.on_disconnect = on_disconnect
+
+# Connect to the MQTT broker
+client.connect(broker_address, broker_port)
+
+
+# Start the MQTT client
+client.loop_start()
 
 
 snakes = [  [16,2],
@@ -97,6 +180,7 @@ def setPawnPos(grid_num):
     
     #if(not(grid_num <=6 or (grid_num >=13 and grid_num <=18) or(grid_num >=25 and grid_num <=30))):
      #   grid_num = grid_num-6
+    
     if(grid_num >= 7 and grid_num <= 12):
         change = grid_num - 7
         grid_num = 12 - change
@@ -106,7 +190,8 @@ def setPawnPos(grid_num):
     if(grid_num >= 31 and grid_num <= 36):
         change = grid_num - 31
         grid_num = 36 - change
-    grid_num = grid_num - 1 # start index from 0
+    if grid_num != 0:
+        grid_num = grid_num - 1 # start index from 0
     
     
     pawn_x =             int((grid_num%GRID_WIDTH)*grid_size) + int(grid_size/2)- int(pawn_image.get_width()/2)
@@ -126,19 +211,43 @@ def scanforSnakesAndLadders(pos):
         if(pos == snake[0]):
             snakeAttack = 1
             print("Snake")
+            score_data[2] = "Snake Bite :-("
             pos = snake[1]
     for ladder in ladders:
         if(pos == ladder[0]):
             ladderClimb = 1
             print("Ladder")
+            score_data[2] = "Got Ladder :-)"
             pos = ladder[1]
     return pos
     
+score_data = ["1", "2", "3", "You have 3 Throws" ]
+white = (255, 255, 255)
+black = (0, 0, 0)
+red = (255, 0, 0)
+font = pygame.font.Font(None, 45)
+scoreboard_width = 500
+scoreboard_height = 350
 
+def draw_scoreboard(screen, x, y, width, height, scores):
+    # Draw border
+    pygame.draw.rect(screen, black, (x, y, width, height), 3)
+
+    # Draw background
+    pygame.draw.rect(screen, white, (x + 3, y + 3, width - 6, height - 6))
+    total_text_height = len(scores) * font.get_linesize()
+
+    start_y = y + (height - total_text_height) // 2
+
+    # Draw each row of scores
+    for i, score in enumerate(scores):
+        text_surface = font.render(score, True, black)
+        text_rect = text_surface.get_rect(center=(x + width // 2, start_y + i * font.get_linesize() + font.get_linesize() // 2))
+        screen.blit(text_surface, text_rect)
 
 setPawnPos(12)
 
-position = 1   
+position = 0   
 new_position = 0
 
 new_pos_counter_max = 300
@@ -146,8 +255,7 @@ new_pos_counter = 0
 
 cnt = 0 
 
-dice1 = 0
-dice2 = 0
+
 
 
 random.randint(2, 12)
@@ -161,22 +269,26 @@ def updateTimer():
     changePwanAt = int(time.time()*1000) + 500 # 2 seconds
     
 game_exceed = 0
-
+MAX_THROWS = 3
+throws = 0
+score_data[2] = "Throw Dice.."
+game_own = 0
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN:
-                #position = position + random.randint(2, 4)
-                #if(position >= 36):
-                 #   position = 1
                 print("Enter key pressed!")
-                dice1 = random.randint(1,6)
-                dice2 = random.randint(1,6)
                 new_position = position + dice1 + dice2 #scanforSnakesAndLadders(position + random.randint(2, 4))
-                dice_1_image = dice_images[dice1-1]
-                dice_2_image = dice_images[dice2-1]
+                score_data[2] = "Throw Dice.."
+                throws = throws + 1
+                score_data[3] = "Remaing Throws .. " +str(MAX_THROWS-throws)
+                if(throws == MAX_THROWS):
+                    throws = 0
+                    print("Game END..")
+                    score_data[3] = "Game END.."
+                    game_exceed = 1
                 if(new_position > GAME_SIZE ):
                     game_exceed = 1
         
@@ -196,13 +308,18 @@ while running:
     elif(new_position == position):
         if(new_position == GAME_SIZE):
             print("WWWWWWWWWIIIIIIIINNNNNNNNNNNN!!!")
-            new_position = 1
-            position = 1
+            new_position = 0
+            position = 0
+            game_exceed =  0
+            throws =  0
+            score_data[3] = " You've WON the GAME "
+
         elif(game_exceed == 1):
             game_exceed = 0
             print("Failed!!!")
-            new_position = 1
-            position = 1
+            new_position = 0
+            position = 0
+            score_data[3] =  "You have 3 Throws" 
         else:
             new_position = scanforSnakesAndLadders(position)
     else:#eaten by snake
@@ -225,7 +342,13 @@ while running:
     
     #pygame.draw.rect(screen, color, pygame.Rect(x_offset_dice, y_offset_dice, 60, 60))
     #pygame.draw.rect(screen, color, pygame.Rect(x_offset_logo, y_offset_logo, 60, 60))
-    pygame.draw.rect(screen, color, pygame.Rect(x_offset_score, y_offset_score,  logo_image.get_width(),60))
+
+
+    #pygame.draw.rect(screen, color, pygame.Rect(x_offset_score, y_offset_score,  logo_image.get_width(),60))
+    score_data[0] = "Dice1 :" + str(dice1) + "  Dice2 :" + str(dice2)
+    score_data[1] = "You are at " + str(position)
+
+    draw_scoreboard(screen, x_offset_score, y_offset_score, scoreboard_width, scoreboard_height, score_data)
     
     
     pygame.display.flip()
